@@ -34,7 +34,7 @@ from ..enquiry.models import *
 from .models import Student, StudentBulkUpload,Bookmodel,Classmodel,Exammodel,Certificatemodel
 from django.utils.decorators import method_decorator
 from apps.corecode.views import student_entry_resricted,staff_student_entry_restricted,different_user_restricted
-
+from django.contrib.auth.decorators import login_required
 
 def generate_student_id_card(request,student_id):
         # Create a blank image
@@ -47,7 +47,7 @@ def generate_student_id_card(request,student_id):
 
 
     # Use the system font for ImageFont
-    font = ImageFont.truetype('arial.ttf', size=45)
+    font = ImageFont.load_default()
 
 
     d_date = datetime.datetime.now()
@@ -58,7 +58,7 @@ def generate_student_id_card(request,student_id):
     background_color = 'rgb(255, 0, 0)'  # red color
     draw.rectangle([(0, 0), (1000, 150)], fill='red')
     (x, y) = (300, 50)
-    company = "VRIDDHACHALAM CSC"
+    company = "Vriddhachalam CSC"
     color = 'rgb(0, 0, 0)' # black color
     draw.text((x, y), company, fill=text_color, font=font)
 
@@ -101,7 +101,7 @@ def generate_student_id_card(request,student_id):
 
 
     # Save the edited image
-    image_path = os.path.join(settings.BASE_DIR, "media\\idcards", f"student_id_card_{student_id}.png")
+    image_path = os.path.join(settings.BASE_DIR, "media/idcards", f"student_id_card_{student_id}.png")
     image.save(image_path)
 
     # Generate QR code
@@ -116,7 +116,7 @@ def generate_student_id_card(request,student_id):
     qr.make(fit=True)
     qr_image = qr.make_image(fill_color="black", back_color="white")
 
-    qr_path = os.path.join('media\\qrcodes', f'qr_code{student_id}.png')
+    qr_path = os.path.join('media/qrcodes', f'qr_code{student_id}.png')
     qr_image.save(qr_path)
 
     # Paste QR code onto the ID card
@@ -213,6 +213,8 @@ class StudentCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         form.fields['if_enq'].label = ""
         enquiry_id = enquiry_id  # self.kwargs.get('if_enq')
         del form.fields["user"]
+        form.fields['username'].widget.attrs['readonly'] = True
+        form.fields['password'].widget.attrs['readonly'] = True
         if self.request.user.is_staff and not self.request.user.is_superuser:
             del form.fields["username"]
             del form.fields["password"]
@@ -224,6 +226,8 @@ class StudentCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
                 # Pre-fill the form fields based on the Enquiry instance
                 form.initial['student_name'] = enquiry_instance.name
                 form.initial['enrol_no'] = self.automatic_ro()
+                form.initial['username'] = self.automatic_ro()
+                form.initial['password'] = enquiry_instance.formatted_date_of_birth()
                 form.initial['date_of_birth'] = enquiry_instance.date_of_birth
                 form.initial['address'] = enquiry_instance.address
                 form.initial['address1'] = enquiry_instance.address1
@@ -312,6 +316,8 @@ class StudentUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         """add date picker in forms"""
         form = super(StudentUpdateView, self).get_form()
         del form.fields["user"]
+        form.fields['username'].widget.attrs['readonly'] = True
+        form.fields['password'].widget.attrs['readonly'] = True
         if self.request.user.is_staff and not self.request.user.is_superuser:
             del form.fields["username"]
             del form.fields["password"]
@@ -566,7 +572,7 @@ class PublicAccessMixin(AccessMixin):
     def handle_no_permission(self):
         return super().handle_no_permission()
 
-
+@method_decorator(login_required(),name='dispatch')
 class PublicView(PublicAccessMixin,DetailView):
     model = Student
     template_name = "public/indexs.html"
